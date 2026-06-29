@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomodoro Minimalista</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --container-bg: #fafafa;
+            --text-main: #1a1a1a;
+            --text-muted: #8c8c8c;
+            --border-color: #e5e5e5;
+            --btn-bg: #1a1a1a;
+            --btn-text: #ffffff;
+            --btn-hover: #333333;
+            --gradient-start: rgba(0, 0, 0, 0.15);
+            --gradient-end: transparent;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #191919;
+                --container-bg: #191919;
+                --text-main: #ffffff;
+                --text-muted: #8e8e8e;
+                --border-color: #2c2c2c;
+                --btn-bg: #ffffff;
+                --btn-text: #191919;
+                --btn-hover: #e0e0e0;
+                --gradient-start: rgba(255, 255, 255, 0.2);
+                --gradient-end: transparent;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .pomodoro-container {
+            text-align: center;
+            padding: 2rem;
+            width: 100%;
+            max-width: 340px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .status-label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+        }
+
+        /* --- El Marco Animado y Suave --- */
+        :root {
+            --ring-start: rgba(255, 255, 255, 0.95);
+            --ring-mid: rgba(255, 255, 255, 0.6);
+            --ring-end: rgba(250, 250, 250, 0.05);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --ring-start: rgba(255, 255, 255, 0.92);
+                --ring-mid: rgba(255, 255, 255, 0.5);
+                --ring-end: rgba(25, 25, 25, 0.08);
+            }
+        }
+
+        .timer-card-wrapper {
+            position: relative;
+            width: 280px;
+            height: 140px;
+            border-radius: 70px;
+            padding: 4px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+
+        .timer-card-wrapper::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: conic-gradient(
+                from 0deg,
+                var(--ring-start) 0deg 14deg,
+                var(--ring-mid) 16deg 22deg,
+                var(--ring-end) 24deg 46deg,
+                transparent 46deg 100deg
+            );
+            filter: blur(0.9px);
+            box-shadow: 0 0 40px rgba(255, 255, 255, 0.18);
+            animation: rotateBorder 30s linear infinite;
+            animation-play-state: paused;
+            opacity: 0.92;
+            transition: opacity 0.2s ease;
+        }
+
+        .timer-card-wrapper.active::before {
+            animation-play-state: running;
+            opacity: 1;
+        }
+
+        .timer-card-wrapper.paused::before {
+            opacity: 0.38;
+        }
+
+        .timer-card-body {
+            position: relative;
+            z-index: 1;
+            background: var(--container-bg);
+            width: 100%;
+            height: 100%;
+            border-radius: calc(70px - 4px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+        }
+
+        .timer-display {
+            font-size: 4.5rem;
+            font-weight: 300;
+            letter-spacing: -0.03em;
+            line-height: 1;
+        }
+
+        @keyframes rotateBorder {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        /* -------------------------------- */
+
+        .controls {
+            display: flex;
+            gap: 0.75rem;
+            width: 280px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            outline: none;
+        }
+
+        .btn-primary {
+            background-color: var(--btn-bg);
+            color: var(--btn-text);
+            flex: 2;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--btn-hover);
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            color: var(--text-muted);
+            border: 1px solid var(--border-color);
+            flex: 1;
+        }
+
+        .btn-secondary:hover {
+            color: var(--text-main);
+            border-color: var(--text-main);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="pomodoro-container">
+        <div class="status-label" id="status">Enfoque</div>
+        
+        <div class="timer-card-wrapper">
+            <div class="timer-card-body">
+                <div class="timer-display" id="timer">25:00</div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button class="btn-primary" id="startPauseBtn">Iniciar</button>
+            <button class="btn-secondary" id="resetBtn">Reiniciar</button>
+        </div>
+    </div>
+
+    <script>
+        
+        const WORK_TIME = 25;
+        const BREAK_TIME = 5;
+
+        let timeLeft = WORK_TIME * 60;
+        let timerId = null;
+        let isWorking = true;
+
+        
+        const notificationAudio = new Audio('notify.mp3');
+        notificationAudio.volume = 0.5; 
+
+        const timerDisplay = document.getElementById('timer');
+        const startPauseBtn = document.getElementById('startPauseBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const statusLabel = document.getElementById('status');
+        const timerCardWrapper = document.querySelector('.timer-card-wrapper');
+
+        function updateDisplay() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function setBorderAnimationState(active) {
+            timerCardWrapper.classList.toggle('active', active);
+            timerCardWrapper.classList.toggle('paused', !active);
+        }
+
+        function toggleTimer() {
+            
+            if (notificationAudio.paused) {
+                notificationAudio.play().then(() => {
+                    notificationAudio.pause();
+                    notificationAudio.currentTime = 0;
+                }).catch(e => console.log("Canal de audio en espera de permisos..."));
+            }
+
+            if (timerId === null) {
+                startPauseBtn.textContent = 'Pausar';
+                setBorderAnimationState(true);
+                timerId = setInterval(() => {
+                    timeLeft--;
+                    updateDisplay();
+
+                    if (timeLeft === 0) {
+                        playAmbientSound();
+                        
+                        isWorking = !isWorking;
+                        timeLeft = (isWorking ? WORK_TIME : BREAK_TIME) * 60;
+                        statusLabel.textContent = isWorking ? 'Enfoque' : 'Descanso';
+                        updateDisplay();
+                    }
+                }, 1000);
+            } else {
+                clearInterval(timerId);
+                timerId = null;
+                startPauseBtn.textContent = 'Reanudar';
+                setBorderAnimationState(false);
+            }
+        }
+
+        function resetTimer() {
+            clearInterval(timerId);
+            timerId = null;
+            isWorking = true;
+            timeLeft = WORK_TIME * 60;
+            statusLabel.textContent = 'Enfoque';
+            startPauseBtn.textContent = 'Iniciar';
+            updateDisplay();
+            setBorderAnimationState(false);
+        }
+
+        function playAmbientSound() {
+            notificationAudio.play().catch(error => {
+                console.log("Error al reproducir el archivo notify.mp3:", error);
+            });
+        }
+
+        startPauseBtn.addEventListener('click', toggleTimer);
+        resetBtn.addEventListener('click', resetTimer);
+
+        setBorderAnimationState(false);
+        updateDisplay();
+    </script>
+    </body>
+</html>
