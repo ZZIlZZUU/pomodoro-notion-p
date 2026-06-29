@@ -246,21 +246,18 @@
         }
 
         function toggleTimer() {
-            
-            if (notificationAudio.paused) {
-                notificationAudio.play().then(() => {
-                    notificationAudio.pause();
-                    notificationAudio.currentTime = 0;
-                }).catch(e => console.log("Canal de audio en espera de permisos..."));
+            const context = new (window.AudioContext || window.webkitAudioContext)();
+            if (context.state === 'suspended') {
+                context.resume();
             }
-
+        
             if (timerId === null) {
                 startPauseBtn.textContent = 'Pausar';
                 setBorderAnimationState(true);
                 timerId = setInterval(() => {
                     timeLeft--;
                     updateDisplay();
-
+        
                     if (timeLeft === 0) {
                         playAmbientSound();
                         
