@@ -18,8 +18,14 @@
             --btn-bg: #1a1a1a;
             --btn-text: #ffffff;
             --btn-hover: #333333;
-            --gradient-start: rgba(0, 0, 0, 0.15);
-            --gradient-end: transparent;
+            --ring-start: rgba(0, 0, 0, 0.25);
+            --ring-mid: rgba(0, 0, 0, 0.12);
+            --ring-end: rgba(250, 250, 250, 0.05);
+            --ring-shadow: rgba(0, 0, 0, 0.03);
+            --vol-icon-color: #8c8c8c;
+            --vol-icon-hover: #1a1a1a;
+            --slider-bg: #e5e5e5;
+            --slider-fill: #1a1a1a;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -32,8 +38,14 @@
                 --btn-bg: #ffffff;
                 --btn-text: #191919;
                 --btn-hover: #e0e0e0;
-                --gradient-start: rgba(255, 255, 255, 0.2);
-                --gradient-end: transparent;
+                --ring-start: rgba(255, 255, 255, 0.92);
+                --ring-mid: rgba(255, 255, 255, 0.5);
+                --ring-end: rgba(25, 25, 25, 0.08);
+                --ring-shadow: rgba(255, 255, 255, 0.18);
+                --vol-icon-color: #8e8e8e;
+                --vol-icon-hover: #ffffff;
+                --slider-bg: #2c2c2c;
+                --slider-fill: #ffffff;
             }
         }
 
@@ -74,21 +86,6 @@
             font-weight: 600;
         }
 
-        /* --- El Marco Animado y Suave --- */
-        :root {
-            --ring-start: rgba(255, 255, 255, 0.95);
-            --ring-mid: rgba(255, 255, 255, 0.6);
-            --ring-end: rgba(250, 250, 250, 0.05);
-        }
-
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --ring-start: rgba(255, 255, 255, 0.92);
-                --ring-mid: rgba(255, 255, 255, 0.5);
-                --ring-end: rgba(25, 25, 25, 0.08);
-            }
-        }
-
         .timer-card-wrapper {
             position: relative;
             width: 280px;
@@ -115,7 +112,7 @@
                 transparent 46deg 100deg
             );
             filter: blur(0.9px);
-            box-shadow: 0 0 40px rgba(255, 255, 255, 0.18);
+            box-shadow: 0 0 40px var(--ring-shadow);
             animation: rotateBorder 30s linear infinite;
             animation-play-state: paused;
             opacity: 0.92;
@@ -155,13 +152,13 @@
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
         }
-        /* -------------------------------- */
 
         .controls {
             display: flex;
             gap: 0.75rem;
             width: 280px;
             justify-content: center;
+            margin-bottom: 1.5rem;
         }
 
         button {
@@ -196,6 +193,62 @@
             color: var(--text-main);
             border-color: var(--text-main);
         }
+
+        .volume-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            width: 180px;
+            opacity: 0.25;
+            transition: opacity 0.25s ease;
+        }
+
+        .volume-container:hover {
+            opacity: 1;
+        }
+
+        .volume-icon {
+            width: 18px;
+            height: 18px;
+            fill: var(--vol-icon-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: fill 0.2s ease;
+        }
+
+        .volume-container:hover .volume-icon {
+            fill: var(--vol-icon-hover);
+        }
+
+        .volume-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            background: var(--slider-bg);
+            outline: none;
+            cursor: pointer;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--slider-fill);
+            transition: transform 0.1s ease;
+        }
+
+        .volume-slider::-moz-range-thumb {
+            width: 10px;
+            height: 10px;
+            border: none;
+            border-radius: 50%;
+            background: var(--slider-fill);
+        }
     </style>
 </head>
 <body>
@@ -213,31 +266,58 @@
             <button class="btn-primary" id="startPauseBtn">Iniciar</button>
             <button class="btn-secondary" id="resetBtn">Reiniciar</button>
         </div>
+
+        <div class="volume-container">
+            <div class="volume-icon" id="volumeIcon">
+                </div>
+            <input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.01">
+        </div>
     </div>
 
     <script>
-        
-        const WORK_TIME = 1;
+        const WORK_TIME = 25;
         const BREAK_TIME = 5;
 
         let timeLeft = WORK_TIME * 60;
         let timerId = null;
         let isWorking = true;
 
-        
+        const savedVolume = localStorage.getItem('pomodoroVolume');
+        const defaultVolume = savedVolume !== null ? parseFloat(savedVolume) : 0.5;
+
         const notificationAudio = new Audio('notify.mp3');
-        notificationAudio.volume = 0.5; 
+        notificationAudio.volume = defaultVolume;
 
         const timerDisplay = document.getElementById('timer');
         const startPauseBtn = document.getElementById('startPauseBtn');
         const resetBtn = document.getElementById('resetBtn');
         const statusLabel = document.getElementById('status');
         const timerCardWrapper = document.querySelector('.timer-card-wrapper');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const volumeIcon = document.getElementById('volumeIcon');
+
+        const svgMute = `<svg viewBox="0 0 24 24" width="100%" height="100%"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.21.05-.42.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>`;
+        const svgVolume = `<svg viewBox="0 0 24 24" width="100%" height="100%"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>`;
+
+        volumeSlider.value = defaultVolume;
+
+        function updateVolumeIcon(vol) {
+            if (vol === 0) {
+                volumeIcon.innerHTML = svgMute;
+            } else {
+                volumeIcon.innerHTML = svgVolume;
+            }
+        }
 
         function updateDisplay() {
             const minutes = Math.floor(timeLeft / 60);
             const seconds = timeLeft % 60;
-            timerDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            timerDisplay.textContent = timeString;
+            
+            const stateText = isWorking ? 'Enfoque' : 'Descanso';
+            document.title = `(${timeString}) ${stateText} | Pomodoro`;
         }
 
         function setBorderAnimationState(active) {
@@ -246,18 +326,19 @@
         }
 
         function toggleTimer() {
+
             const context = new (window.AudioContext || window.webkitAudioContext)();
             if (context.state === 'suspended') {
                 context.resume();
             }
-        
+
             if (timerId === null) {
                 startPauseBtn.textContent = 'Pausar';
                 setBorderAnimationState(true);
                 timerId = setInterval(() => {
                     timeLeft--;
                     updateDisplay();
-        
+
                     if (timeLeft === 0) {
                         playAmbientSound();
                         
@@ -292,9 +373,17 @@
             });
         }
 
+        volumeSlider.addEventListener('input', (e) => {
+            const vol = parseFloat(e.target.value);
+            notificationAudio.volume = vol;
+            updateVolumeIcon(vol);
+            localStorage.setItem('pomodoroVolume', vol);
+        });
+
         startPauseBtn.addEventListener('click', toggleTimer);
         resetBtn.addEventListener('click', resetTimer);
 
+        updateVolumeIcon(defaultVolume);
         setBorderAnimationState(false);
         updateDisplay();
     </script>
