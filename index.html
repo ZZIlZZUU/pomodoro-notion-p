@@ -3,10 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minimalist Pomodoro</title>
+    <title>Pomodoro Minimalista</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <!-- Favicon dinámico en Canvas -->
+    <link id="faviconLink" rel="icon" type="image/x-icon">
     
     <style>
         :root {
@@ -19,6 +22,7 @@
             --btn-text: #ffffff;
             --btn-hover: #333333;
             --ring-color: rgba(0, 0, 0, 0.85);
+            --dot-inactive: rgba(0, 0, 0, 0.2);
             --vol-icon-color: #8c8c8c;
             --vol-icon-hover: #1a1a1a;
             --slider-bg: #e5e5e5;
@@ -36,6 +40,7 @@
                 --btn-text: #191919;
                 --btn-hover: #e0e0e0;
                 --ring-color: rgba(255, 255, 255, 0.95);
+                --dot-inactive: rgba(255, 255, 255, 0.25);
                 --vol-icon-color: #8e8e8e;
                 --vol-icon-hover: #ffffff;
                 --slider-bg: #2c2c2c;
@@ -166,6 +171,77 @@
             font-weight: 300;
             letter-spacing: -0.03em;
             line-height: 1;
+            transition: opacity 0.3s ease;
+        }
+
+        .timer-display.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .well-done-message {
+            position: absolute;
+            font-size: 2.2rem;
+            font-weight: 600;
+            color: var(--text-main);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 3;
+        }
+
+        .well-done-message.show {
+            opacity: 1;
+        }
+
+        .sessions-container {
+            margin-top: -0.6rem;
+            margin-bottom: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 24px;
+        }
+
+        .sessions-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.4rem;
+        }
+
+        .sessions-dots {
+            display: flex;
+            gap: 0.4rem;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--dot-inactive);
+            transition: background-color 0.3s ease;
+        }
+
+        .dot.active {
+            background-color: var(--ring-color);
+        }
+
+        .completion-message {
+            position: absolute;
+            bottom: 3rem;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-main);
+            opacity: 0;
+            transform: scale(0.8);
+            pointer-events: none;
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+
+        .completion-message.show {
+            opacity: 1;
+            transform: scale(1);
         }
 
         .controls {
@@ -185,6 +261,17 @@
             cursor: pointer;
             transition: all 0.2s ease;
             outline: none;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        button:disabled:hover {
+            background-color: inherit;
+            color: inherit;
+            border-color: inherit;
         }
 
         .btn-primary {
@@ -278,6 +365,18 @@
             </svg>
             <div class="timer-card-body">
                 <div class="timer-display" id="timer">25:00</div>
+                <div class="well-done-message" id="wellDoneMessage">Bien hecho</div>
+            </div>
+            <div class="completion-message" id="completionMessage">Bien hecho</div>
+        </div>
+
+        <div class="sessions-container">
+            <span class="sessions-label">Sesiones</span>
+            <div class="sessions-dots" id="sessionsDots">
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
             </div>
         </div>
         
@@ -294,12 +393,118 @@
     </div>
 
     <script>
+        // ========== TRADUCCIONES (19 IDIOMAS) ==========
+        const translations = {
+            keys: ['enfoque', 'descanso', 'descansoLargo', 'sesionCompletada', 'iniciar', 'pausar', 'reanudar', 'reiniciar', 'sesiones', 'bienHecho'],
+            data: {
+                es: 'Enfoque|Descanso|Descanso Largo|Sesión Completada|Iniciar|Pausar|Reanudar|Reiniciar|Sesiones|Bien hecho',
+                en: 'Focus|Break|Long Break|Session Complete|Start|Pause|Resume|Restart|Sessions|Well Done',
+                pt: 'Foco|Pausa|Pausa Longa|Sessão Concluída|Iniciar|Pausar|Retomar|Reiniciar|Sessões|Bem feito',
+                fr: 'Concentration|Pause|Longue Pause|Session Terminée|Démarrer|Pause|Reprendre|Redémarrer|Sessions|Bien fait',
+                de: 'Fokus|Pause|Lange Pause|Sitzung Abgeschlossen|Starten|Pause|Fortsetzen|Neustarten|Sitzungen|Gut gemacht',
+                it: 'Messa a fuoco|Pausa|Pausa Lunga|Sessione Completata|Inizia|Pausa|Riprendi|Riavvia|Sessioni|Buon lavoro',
+                nl: 'Concentratie|Pauze|Lange Pauze|Sessie Voltooid|Start|Pauzeren|Hervatten|Herstarten|Sessies|Goed gedaan',
+                ja: '集中力|休憩|長い休憩|セッション完了|開始|一時停止|再開|再起動|セッション|よくやった',
+                ko: '집중력|휴식|긴 휴식|세션 완료|시작|일시 정지|다시 시작|재시작|세션|잘했어',
+                zh: '专注|休息|长休息|会话完成|开始|暂停|恢复|重启|会话|干得好',
+                ru: 'Фокус|Перерыв|Долгий перерыв|Сессия завершена|Начать|Пауза|Возобновить|Перезагрузка|Сеансы|Хорошо сделано',
+                tr: 'Odaklanma|Mola|Uzun Mola|Oturum Tamamlandı|Başla|Duraklat|Devam Et|Yeniden Başla|Oturumlar|İyi yapıldı',
+                pl: 'Skupienie|Przerwa|Długa Przerwa|Sesja Zakończona|Uruchom|Wstrzymaj|Wznów|Uruchom Ponownie|Sesje|Świetnie',
+                sv: 'Fokus|Paus|Lång Paus|Session Slutförd|Starta|Pausa|Återuppta|Starta Om|Sessioner|Bra gjort',
+                no: 'Fokus|Pause|Lang Pause|Økt Fullført|Start|Pause|Gjenoppta|Start på Nytt|Økter|Bra jobbet',
+                da: 'Fokus|Pause|Lang pause|Møde Afsluttet|Start|Pause|Genoptag|Genstart|Møder|Godt gået',
+                fi: 'Keskittyminen|Tauko|Pitkä Tauko|Istunto Valmis|Aloita|Keskeytä|Jatka|Käynnistä Uudelleen|Istunnot|Hyvää työtä',
+                ar: 'التركيز|فترة راحة|فترة راحة طويلة|جلسة مكتملة|ابدأ|إيقاف مؤقت|استئناف|إعادة تشغيل|جلسات|حسنا فعلت',
+                hi: 'ध्यान|विराम|लंबा विराम|सत्र पूर्ण|शुरू|रोकना|फिर से शुरू करें|पुनः प्रारंभ करें|सत्र|अच्छा किया'
+            }
+        };
+
+        // Detectar idioma del navegador
+        const detectLanguage = () => {
+            const browserLang = navigator.language.split('-')[0];
+            return translations.data[browserLang] ? browserLang : 'es';
+        };
+
+        const currentLang = detectLanguage();  // Usa idioma del navegador
+        
+        // Función para traducir (parsea el formato comprimido)
+        const translate = (key) => {
+            const keyIndex = translations.keys.indexOf(key);
+            if (keyIndex === -1) return key;
+            const langString = translations.data[currentLang] || translations.data.es;
+            return langString.split('|')[keyIndex];
+        }
+
+
+        // ========== CONFIGURACIÓN DEL TIMER ==========
         const WORK_TIME = 25;
-        const BREAK_TIME = 5;
+        const BREAK_TIME_SHORT = 5;
+        const BREAK_TIME_LONG = 15;
+        const MAX_SESSIONS = 4;
 
         let timeLeft = WORK_TIME * 60;
         let timerId = null;
         let isWorking = true;
+        let completedSessions = 0;
+        let isSessionCompleted = false;
+
+        // ========== FAVICON DINÁMICO EN CANVAS ==========
+        const faviconLink = document.getElementById('faviconLink');
+        const faviconCanvas = document.createElement('canvas');
+        faviconCanvas.width = 64;
+        faviconCanvas.height = 64;
+        const faviconCtx = faviconCanvas.getContext('2d');
+
+        // Colores dinámicos del favicon según estado
+        const faviconColors = {
+            trabajo: '#4da6ff',      // Azul claro vivido para enfoque
+            descanso: '#00ff00',     // Verde para descanso corto
+            descansoLargo: '#ffaa00' // Ámbar para descanso largo
+        };
+
+        const updateFavicon = () => {
+            faviconCtx.clearRect(0, 0, 64, 64);
+
+            // Determinar color según estado
+            let circleColor = faviconColors.trabajo;
+            if (!isWorking && completedSessions < 3) {
+                circleColor = faviconColors.descanso;
+            } else if (!isWorking && completedSessions === 3) {
+                circleColor = faviconColors.descansoLargo;
+            }
+
+            // Dibujar círculo de fondo (más oscuro)
+            faviconCtx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            faviconCtx.beginPath();
+            faviconCtx.arc(32, 32, 30, 0, Math.PI * 2);
+            faviconCtx.fill();
+
+            // Calcular posición de la línea (1/5 del perímetro)
+            const radius = 28;
+            const circumference = 2 * Math.PI * radius;
+            const lineLength = circumference / 5; // 1/5 del perímetro
+            const totalProgress = timerId !== null ? ((Date.now() / 30000) % 1) : 0;
+            const lineStartAngle = (totalProgress * Math.PI * 2) - (lineLength / radius / 2);
+            const lineEndAngle = lineStartAngle + (lineLength / radius);
+
+            // Dibujar línea animada (1/5 del perímetro)
+            faviconCtx.strokeStyle = circleColor;
+            faviconCtx.lineWidth = 3;
+            faviconCtx.lineCap = 'round';
+            faviconCtx.beginPath();
+            faviconCtx.arc(32, 32, radius, lineStartAngle, lineEndAngle);
+            faviconCtx.stroke();
+
+            // Actualizar favicon
+            faviconLink.href = faviconCanvas.toDataURL();
+        };
+
+        // Actualizar favicon cada 100ms mientras el timer esté activo
+        setInterval(() => {
+            if (timerId !== null || completedSessions > 0) {
+                updateFavicon();
+            }
+        }, 100);
 
         const savedVolume = localStorage.getItem('pomodoroVolume');
         const defaultVolume = savedVolume !== null ? parseFloat(savedVolume) : 0.5;
@@ -314,6 +519,9 @@
         const timerCardWrapper = document.querySelector('.timer-card-wrapper');
         const volumeSlider = document.getElementById('volumeSlider');
         const volumeIcon = document.getElementById('volumeIcon');
+        const sessionsDots = document.querySelectorAll('.dot');
+        const completionMessage = document.getElementById('completionMessage');
+        const wellDoneMessage = document.getElementById('wellDoneMessage');
 
         const svgMute = `<svg viewBox="0 0 24 24" width="100%" height="100%"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.21.05-.42.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>`;
         const svgVolume = `<svg viewBox="0 0 24 24" width="100%" height="100%"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>`;
@@ -335,8 +543,21 @@
             
             timerDisplay.textContent = timeString;
             
-            const stateText = isWorking ? 'Enfoque' : 'Descanso';
+            const stateText = isWorking ? translate('enfoque') : translate('descanso');
             document.title = `(${timeString}) ${stateText} | Pomodoro`;
+        }
+
+        function updateSessionDots() {
+            sessionsDots.forEach((dot, index) => {
+                dot.classList.toggle('active', index < completedSessions);
+            });
+        }
+
+        function showCompletionMessage() {
+            completionMessage.classList.add('show');
+            setTimeout(() => {
+                completionMessage.classList.remove('show');
+            }, 3000);
         }
 
         function setBorderAnimationState(active) {
@@ -345,6 +566,10 @@
         }
 
         function toggleTimer() {
+            // Si las sesiones están completas, no hacer nada al presionar el botón de reanudar
+            if (isSessionCompleted) {
+                return;
+            }
 
             const context = new (window.AudioContext || window.webkitAudioContext)();
             if (context.state === 'suspended') {
@@ -352,7 +577,7 @@
             }
 
             if (timerId === null) {
-                startPauseBtn.textContent = 'Pausar';
+                startPauseBtn.textContent = translate('pausar');
                 setBorderAnimationState(true);
                 timerId = setInterval(() => {
                     timeLeft--;
@@ -361,16 +586,54 @@
                     if (timeLeft === 0) {
                         playAmbientSound();
                         
-                        isWorking = !isWorking;
-                        timeLeft = (isWorking ? WORK_TIME : BREAK_TIME) * 60;
-                        statusLabel.textContent = isWorking ? 'Enfoque' : 'Descanso';
-                        updateDisplay();
+                        // Si acaba de terminar el trabajo (enfoque)
+                        if (isWorking) {
+                            // Ilumina el punto correspondiente
+                            completedSessions++;
+                            updateSessionDots();
+                            
+                            // Si completó 4 sesiones, pausa el timer, muestra mensaje
+                            if (completedSessions === MAX_SESSIONS) {
+                                clearInterval(timerId);
+                                timerId = null;
+                                isSessionCompleted = true;
+                                startPauseBtn.textContent = translate('reanudar');
+                                startPauseBtn.disabled = true;
+                                setBorderAnimationState(false);
+                                
+                                // Ocultar timer y mostrar "Bien hecho"
+                                timerDisplay.classList.add('hidden');
+                                wellDoneMessage.classList.add('show');
+                                
+                                showCompletionMessage();
+                                isWorking = false;
+                                statusLabel.textContent = translate('sesionCompletada');
+                                return;
+                            }
+                            
+                            // Si completó 3 sesiones, descanso largo, si no descanso corto
+                            isWorking = false;
+                            if (completedSessions === 3) {
+                                timeLeft = BREAK_TIME_LONG * 60;
+                                statusLabel.textContent = translate('descansoLargo');
+                            } else {
+                                timeLeft = BREAK_TIME_SHORT * 60;
+                                statusLabel.textContent = translate('descanso');
+                            }
+                            updateDisplay();
+                        } else {
+                            // Si acaba de terminar el descanso, vuelve al enfoque
+                            isWorking = true;
+                            timeLeft = WORK_TIME * 60;
+                            statusLabel.textContent = translate('enfoque');
+                            updateDisplay();
+                        }
                     }
                 }, 1000);
             } else {
                 clearInterval(timerId);
                 timerId = null;
-                startPauseBtn.textContent = 'Reanudar';
+                startPauseBtn.textContent = translate('reanudar');
                 setBorderAnimationState(false);
             }
         }
@@ -380,10 +643,21 @@
             timerId = null;
             isWorking = true;
             timeLeft = WORK_TIME * 60;
-            statusLabel.textContent = 'Enfoque';
-            startPauseBtn.textContent = 'Iniciar';
+            completedSessions = 0;
+            isSessionCompleted = false;
+            statusLabel.textContent = translate('enfoque');
+            startPauseBtn.textContent = translate('iniciar');
+            startPauseBtn.disabled = false;
+            completionMessage.classList.remove('show');
+            
+            // Mostrar timer y ocultar "Bien hecho"
+            timerDisplay.classList.remove('hidden');
+            wellDoneMessage.classList.remove('show');
+            
             updateDisplay();
+            updateSessionDots();
             setBorderAnimationState(false);
+            updateFavicon();
         }
 
         function playAmbientSound() {
@@ -402,9 +676,18 @@
         startPauseBtn.addEventListener('click', toggleTimer);
         resetBtn.addEventListener('click', resetTimer);
 
+        // Inicializar textos traducidos
+        startPauseBtn.textContent = translate('iniciar');
+        resetBtn.textContent = translate('reiniciar');
+        statusLabel.textContent = translate('enfoque');
+        document.querySelector('.sessions-label').textContent = translate('sesiones');
+        wellDoneMessage.textContent = translate('bienHecho');
+
         updateVolumeIcon(defaultVolume);
         setBorderAnimationState(false);
         updateDisplay();
+        updateSessionDots();
+        updateFavicon();
     </script>
     </body>
 </html>
